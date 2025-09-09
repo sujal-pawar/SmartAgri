@@ -71,7 +71,7 @@ if not coord_string:
     raise ValueError("COORDINATES not found in parent directory .env")
 
 try:
-    coordinates = json.loads(coord_string)  # Expecting something like [[lon, lat], [lon, lat], ...]
+    coordinates = json.loads(coord_string) 
 except json.JSONDecodeError as e:
     raise ValueError(f"COORDINATES in .env is not valid JSON: {e}")
 ###########################################################################
@@ -284,7 +284,6 @@ for index in parameters:
     else:
         print(f"Export task failed or was cancelled. Final status: {status['state']}")
         print(f"Error message: {status.get('error_message', 'No error message provided.')}")
-        # exit() # Exit the script if the export failed/
         break
 
 

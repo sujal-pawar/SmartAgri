@@ -1,0 +1,1 @@
+subprocess.Popen(['python', 'I://Projects//SmartAgri//server//Google_Earth_Engine//vegetation_data.py'])

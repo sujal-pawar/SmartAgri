@@ -2,44 +2,54 @@ import time
 import os
 import sys
 import glob
+import json
 import cv2
 import numpy as np
 from ultralytics import YOLO
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-# Folder to watch
-WATCH_FOLDER = r"I:\Projects\SmartAgri\server\crop_imgs\disease\tea"
+WATCH_FOLDER = r"I:\Projects\SmartAgri\server\crop_imgs\disease"
 
 class ImageEventHandler(FileSystemEventHandler):
     def on_modified(self, event):
-        if not event.is_directory and event.src_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-            print(f"Image modified: {event.src_path}")
-            self.trigger_action(event.src_path)
+        if not event.is_directory:
+            crops=["tea","tomato","rice"]
+            for crop in crops:
+                if event.src_path.lower().endswith((f'{crop}.png', f'{crop}.jpg', f'{crop}.jpeg')):
+                    print(f"Image modified: {event.src_path}")
+                    self.trigger_action(event.src_path, crop)
+                    
+
 
     def on_created(self, event):
-        if not event.is_directory and event.src_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-            print(f"New image created: {event.src_path}")
-            self.trigger_action(event.src_path)
+        if not event.is_directory:
+            crops=["tea","tomato","rice"]
+            for crop in crops:
+                if event.src_path.lower().endswith((f'{crop}.png', f'{crop}.jpg', f'{crop}.jpeg')):
+                    print(f"Image modified: {event.src_path}")
+                    self.trigger_action(event.src_path, crop)
 
-    def trigger_action(self, file_path):
-        model_path = r"I:/Projects/SmartAgri/server/tea1.pt"
-        img_source = r"I:/Projects/SmartAgri/server/crop_imgs/disease/tea/img.png"
-        output_dir = r"I:/Projects/SmartAgri/server/detect_results/disease/tea"
+    def trigger_action(self, file_path, crop):
+        if(crop=="tea"):
+            model_path = r"I:/Projects/SmartAgri/server/tea1.pt"
+            img_source = r"I:/Projects/SmartAgri/server/crop_imgs/disease/tea.png"
+            output_dir = r"I:/Projects/SmartAgri/server/detect_results/disease"
+        if(crop=="tomato"):
+            model_path = r"I:/Projects/SmartAgri/server/tomato_leaf.pt"
+            img_source = r"I:/Projects/SmartAgri/server/crop_imgs/disease/tomato.png"
+            output_dir = r"I:/Projects/SmartAgri/server/detect_results/disease"
+
         min_thresh = 0.5
         user_res = "480x480"
-        # ---------------------------
 
-        # Check if model exists
         if not os.path.exists(model_path):
             print('ERROR: Model path is invalid or not found.')
             sys.exit(0)
 
-        # Load YOLO model
         model = YOLO(model_path, task='detect')
         labels = model.names
 
-        # Detect source type
         img_ext_list = ['.jpg','.JPG','.jpeg','.JPEG','.png','.PNG','.bmp','.BMP']
         vid_ext_list = ['.avi','.mov','.mp4','.mkv','.wmv']
 
@@ -58,26 +68,21 @@ class ImageEventHandler(FileSystemEventHandler):
             print(f'Input {img_source} is invalid.')
             sys.exit(0)
 
-        # Parse resolution
         resize = False
         if user_res:
             resize = True
             resW, resH = map(int, user_res.split('x'))
 
-        # Prepare output directory
         os.makedirs(output_dir, exist_ok=True)
 
-        # Load image list
         if source_type == 'image':
             imgs_list = [img_source]
         elif source_type == 'folder':
             imgs_list = [f for f in glob.glob(img_source + '/*') if os.path.splitext(f)[1] in img_ext_list]
 
-        # Colors for bounding boxes
         bbox_colors = [(164,120,87), (68,148,228), (93,97,209), (178,182,133), (88,159,106), 
                     (96,202,231), (159,124,168), (169,162,241), (98,118,150), (172,176,184)]
 
-        # Process each image
         for idx, img_filename in enumerate(imgs_list):
             t_start = time.perf_counter()
 
@@ -89,7 +94,6 @@ class ImageEventHandler(FileSystemEventHandler):
             if resize:
                 frame = cv2.resize(frame, (resW, resH))
 
-            # Run inference
             results = model(frame, verbose=False)
             detections = results[0].boxes
 
@@ -115,15 +119,24 @@ class ImageEventHandler(FileSystemEventHandler):
 
                     object_count += 1
 
+                    with open("I:\Projects\SmartAgri\server\detect_results\suggest.json", "r") as file:
+                        data = json.load(file)
+
+                    if(classname=="brown blight"):
+                        data["content"]="NA"
+                    if(classname=="brown blight"):
+                        data["content"]="NA"
+
+                    with open("I:\Projects\SmartAgri\server\detect_results\suggest.json", "w") as file:
+                        json.dump(data, file, indent=4)
+
             cv2.putText(frame, f'Objects: {object_count}', (10,40),
                         cv2.FONT_HERSHEY_SIMPLEX, .7, (0,255,255), 2)
 
-            # Save result
-            save_path = os.path.join(output_dir, f"result_{idx+1}.png")
+            save_path = os.path.join(output_dir, f"result_{crop}.png")
             cv2.imwrite(save_path, frame)
             print(f"Saved: {save_path}")
 
-            # FPS calculation (optional)
             t_stop = time.perf_counter()
             fps = 1 / (t_stop - t_start)
             print(f"Processed {img_filename} | Objects: {object_count} | FPS: {fps:.2f}")
