@@ -31,6 +31,13 @@ class ImageEventHandler(FileSystemEventHandler):
                     self.trigger_action(event.src_path, crop)
 
     def trigger_action(self, file_path, crop):
+        with open("I:\Projects\SmartAgri\server\detect_results\suggest.json", "r") as file:
+            data = json.load(file)
+        data["result"]=False
+
+        with open("I:\Projects\SmartAgri\server\detect_results\suggest.json", "w") as file:
+            json.dump(data, file, indent=4)
+
         if(crop=="tea"):
             model_path = r"I:/Projects/SmartAgri/server/tea1.pt"
             img_source = r"I:/Projects/SmartAgri/server/crop_imgs/disease/tea.png"
@@ -123,10 +130,13 @@ class ImageEventHandler(FileSystemEventHandler):
                         data = json.load(file)
 
                     if(classname=="brown blight"):
-                        data["content"]="NA"
-                    if(classname=="brown blight"):
-                        data["content"]="NA"
-
+                        data["content"]="Caused by fungus Colletotrichum camelliae. Favors high humidity, rainfall, poor air circulation. Leads to brown spots → leaf blight → yield loss."
+                        data["result"]=True
+                    # if(classname=="brown blight"):
+                    #     data["content"]="NA"
+                    else:
+                        data["content"]="Not available"
+                        data["result"]=False
                     with open("I:\Projects\SmartAgri\server\detect_results\suggest.json", "w") as file:
                         json.dump(data, file, indent=4)
 
