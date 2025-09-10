@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faUpload, 
-  faLeaf, 
-  faSpinner, 
-  faCheckCircle, 
+import {
+  faUpload,
+  faLeaf,
+  faSpinner,
+  faCheckCircle,
   faExclamationTriangle,
   faImage,
   faEye,
@@ -18,6 +18,7 @@ const PlantDiseaseDetection = () => {
   const [resultImage, setResultImage] = useState(null);
   const [diseaseInfo, setDiseaseInfo] = useState(null);
   const [error, setError] = useState(null);
+  const [plantName, setPlantName] = useState('');
   const fileInputRef = useRef(null);
 
   // Handle file selection
@@ -29,8 +30,7 @@ const PlantDiseaseDetection = () => {
         setError(null);
         setResultImage(null);
         setDiseaseInfo(null);
-        
-        // Create preview URL
+
         const reader = new FileReader();
         reader.onload = (e) => {
           setPreviewUrl(e.target.result);
@@ -55,7 +55,7 @@ const PlantDiseaseDetection = () => {
       setError(null);
       setResultImage(null);
       setDiseaseInfo(null);
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target.result);
@@ -70,16 +70,22 @@ const PlantDiseaseDetection = () => {
       setError('Please select an image first');
       return;
     }
+    if (!plantName.trim()) {
+      setError('Please enter the plant name');
+      return;
+    }
 
     setIsUploading(true);
     setError(null);
 
     try {
-      // Create FormData to send the file
       const formData = new FormData();
-      formData.append('image', selectedFile);
+      // Append file with plant name as filename (lowercase, underscores + .png)
+      const filename = plantName.trim().toLowerCase().replace(/\s+/g, '_') + '.png';
+      formData.append('image', selectedFile, filename);
+      formData.append('plantName', plantName.trim());
 
-      // Upload image to server
+      // Replace with your backend upload endpoint
       const response = await fetch('http://localhost:5000/api/upload-disease-image', {
         method: 'POST',
         body: formData,
@@ -90,19 +96,22 @@ const PlantDiseaseDetection = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
-        // Set result image path with timestamp to force refresh
         const timestamp = new Date().getTime();
         setResultImage(`http://localhost:5000/detect_results/disease/result_1.png?t=${timestamp}`);
-        
-        // Set disease information
+
         setDiseaseInfo(result.diseaseInfo || {
           name: 'Analysis Complete',
           description: 'Disease detection analysis has been completed.',
           treatment: 'Please check the result image for detailed analysis. Consult with an agricultural expert for specific treatment recommendations.',
           confidence: result.confidence || 'N/A'
         });
+
+        setPlantName('');
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
         setError(result.message || 'Failed to analyze the image');
       }
@@ -121,6 +130,7 @@ const PlantDiseaseDetection = () => {
     setResultImage(null);
     setDiseaseInfo(null);
     setError(null);
+    setPlantName('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -145,16 +155,15 @@ const PlantDiseaseDetection = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
               <FontAwesomeIcon icon={faUpload} className="mr-2 text-green-600" />
-              Upload Leaf Image
+              Upload Leaf Image & Plant Name
             </h2>
 
             {/* Drag and Drop Area */}
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                previewUrl 
-                  ? 'border-green-300 bg-green-50' 
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${previewUrl
+                  ? 'border-green-300 bg-green-50'
                   : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
-              }`}
+                }`}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
             >
@@ -187,6 +196,7 @@ const PlantDiseaseDetection = () => {
               )}
             </div>
 
+            {/* File Input Hidden */}
             <input
               ref={fileInputRef}
               type="file"
@@ -195,11 +205,24 @@ const PlantDiseaseDetection = () => {
               className="hidden"
             />
 
+            {/* Plant Name Input */}
+            {/* Plant Name Select Dropdown */}
+            <select
+              value={plantName}
+              onChange={e => setPlantName(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2 mt-4 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+            >
+              <option value="">Select plant</option>
+              <option value="tea">Tea</option>
+              <option value="tomato">Tomato</option>
+            </select>
+
+
             {/* Action Buttons */}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleUpload}
-                disabled={!selectedFile || isUploading}
+                disabled={!selectedFile || !plantName.trim() || isUploading}
                 className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {isUploading ? (
@@ -214,7 +237,6 @@ const PlantDiseaseDetection = () => {
                   </>
                 )}
               </button>
-              
               <button
                 onClick={handleReset}
                 className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -248,7 +270,6 @@ const PlantDiseaseDetection = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Result Image */}
                 {resultImage && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-800 mb-3">Analysis Result</h3>
@@ -263,32 +284,31 @@ const PlantDiseaseDetection = () => {
                   </div>
                 )}
 
-                {/* Disease Information */}
                 {diseaseInfo && (
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                       <FontAwesomeIcon icon={faMedkit} className="mr-2 text-blue-600" />
                       Disease Information & Treatment
                     </h3>
-                    
+
                     <div className="space-y-4">
                       <div>
                         <h4 className="font-medium text-gray-800">Detected Condition:</h4>
                         <p className="text-gray-700">{diseaseInfo.name}</p>
                       </div>
-                      
+
                       {diseaseInfo.confidence && (
                         <div>
                           <h4 className="font-medium text-gray-800">Confidence Level:</h4>
                           <p className="text-gray-700">{diseaseInfo.confidence}</p>
                         </div>
                       )}
-                      
+
                       <div>
                         <h4 className="font-medium text-gray-800">Description:</h4>
                         <p className="text-gray-700">{diseaseInfo.description}</p>
                       </div>
-                      
+
                       <div>
                         <h4 className="font-medium text-gray-800">Recommended Treatment:</h4>
                         <p className="text-gray-700">{diseaseInfo.treatment}</p>

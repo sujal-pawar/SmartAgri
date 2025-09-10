@@ -17,19 +17,23 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 
-// Configure multer for image uploads
+// Configure multer for image uploads with plant name-based storage
+const diseaseUploadDir = path.join(__dirname, 'crop_imgs', 'disease');
+const diseaseResultsDir = path.join(__dirname, 'detect_results', 'disease');
+
+// Ensure folders exist
+if (!fs.existsSync(diseaseUploadDir)) fs.mkdirSync(diseaseUploadDir, { recursive: true });
+if (!fs.existsSync(diseaseResultsDir)) fs.mkdirSync(diseaseResultsDir, { recursive: true });
+
+// Multer diskStorage - use temporary filename first
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const diseaseDir = path.join(__dirname, 'crop_imgs', 'disease');
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(diseaseDir)) {
-      fs.mkdirSync(diseaseDir, { recursive: true });
-    }
-    cb(null, diseaseDir);
+  destination: (req, file, cb) => {
+    cb(null, diseaseUploadDir);
   },
-  filename: function (req, file, cb) {
-    // Always save as img.png (overwrite existing)
-    cb(null, 'img.png');
+  filename: (req, file, cb) => {
+    // Use temporary filename with timestamp
+    const tempName = `temp_${Date.now()}.png`;
+    cb(null, tempName);
   }
 });
 
@@ -58,11 +62,7 @@ if (!fs.existsSync(fieldCoordsDir)) {
   fs.mkdirSync(fieldCoordsDir, { recursive: true });
 }
 
-// Create directories for disease detection if they don't exist
-const diseaseResultsDir = path.join(__dirname, 'detect_results', 'disease');
-if (!fs.existsSync(diseaseResultsDir)) {
-  fs.mkdirSync(diseaseResultsDir, { recursive: true });
-}
+// Directory for disease detection results is already created above
 
 // API endpoint for plant disease detection
 app.post('/api/upload-disease-image', upload.single('image'), (req, res) => {
@@ -74,26 +74,31 @@ app.post('/api/upload-disease-image', upload.single('image'), (req, res) => {
       });
     }
 
-    console.log('Image uploaded successfully:', req.file.path);
+    // Get plant name from request body
+    const plantName = req.body.plantName || 'unknown_plant';
+    const sanitizedPlantName = plantName.toLowerCase().replace(/\s+/g, '_');
+    
+    // Create the final filename with plant name
+    const finalFilename = `${sanitizedPlantName}.png`;
+    const finalPath = path.join(diseaseUploadDir, finalFilename);
+    
+    // Rename the temporary file to the plant name
+    fs.renameSync(req.file.path, finalPath);
+    
+    console.log(`Image uploaded and renamed successfully: ${finalPath}`);
 
     // Simulate disease detection processing
-    // In a real implementation, you would call your ML model here
     setTimeout(() => {
       try {
-        // Create a mock result image (copy the uploaded image to result location)
+        // Copy uploaded image to result path as demo processed output
         const resultImagePath = path.join(diseaseResultsDir, 'result_1.png');
-        
-        // For demo purposes, copy the uploaded image as the result
-        // In real implementation, this would be the processed image from your ML model
-        fs.copyFileSync(req.file.path, resultImagePath);
-        
+        fs.copyFileSync(finalPath, resultImagePath);
         console.log('Disease detection completed, result saved to:', resultImagePath);
       } catch (error) {
         console.error('Error creating result image:', error);
       }
     }, 1000);
 
-    // Return immediate response with mock disease information
     const mockDiseaseInfo = {
       name: 'Analysis Complete',
       description: 'The leaf image has been processed successfully. Check the result image for detailed analysis.',
@@ -105,7 +110,8 @@ app.post('/api/upload-disease-image', upload.single('image'), (req, res) => {
       success: true,
       message: 'Image uploaded and analyzed successfully',
       diseaseInfo: mockDiseaseInfo,
-      resultImagePath: '/detect_results/disease/result_1.png'
+      resultImagePath: '/detect_results/disease/result_1.png',
+      uploadedAs: finalFilename
     });
 
   } catch (error) {
