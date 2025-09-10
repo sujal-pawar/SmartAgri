@@ -87,11 +87,14 @@ app.post('/api/upload-disease-image', upload.single('image'), (req, res) => {
     
     console.log(`Image uploaded and renamed successfully: ${finalPath}`);
 
+    // Create result filename with plant name
+    const resultFilename = `${sanitizedPlantName}.png`;
+    const resultImagePath = path.join(diseaseResultsDir, resultFilename);
+
     // Simulate disease detection processing
     setTimeout(() => {
       try {
         // Copy uploaded image to result path as demo processed output
-        const resultImagePath = path.join(diseaseResultsDir, 'result_1.png');
         fs.copyFileSync(finalPath, resultImagePath);
         console.log('Disease detection completed, result saved to:', resultImagePath);
       } catch (error) {
@@ -110,7 +113,7 @@ app.post('/api/upload-disease-image', upload.single('image'), (req, res) => {
       success: true,
       message: 'Image uploaded and analyzed successfully',
       diseaseInfo: mockDiseaseInfo,
-      resultImagePath: '/detect_results/disease/result_1.png',
+      resultImagePath: `/detect_results/disease/${resultFilename}`,
       uploadedAs: finalFilename
     });
 
