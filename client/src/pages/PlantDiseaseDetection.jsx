@@ -99,7 +99,8 @@ const PlantDiseaseDetection = () => {
 
       if (result.success) {
         const timestamp = new Date().getTime();
-        setResultImage(`http://localhost:5000/detect_results/disease/result_1.png?t=${timestamp}`);
+        // Use the resultImagePath returned by the server with the plant name
+        setResultImage(`http://localhost:5000${result.resultImagePath}?t=${timestamp}`);
 
         setDiseaseInfo(result.diseaseInfo || {
           name: 'Analysis Complete',
